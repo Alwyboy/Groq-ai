@@ -55,8 +55,8 @@ export default async function handler(req, res) {
     const contextUser = (userMessages || []).reverse().map(m => `${m.username}: ${m.message}`).join("\n");
 
     const finalPrompt = `
-Kamu adalah Nightbot AI yang ramah dan sopan di live chat YouTube.
-Kepribadian: lucu tapi tetap sopan.
+Kamu adalah Nightbot seperti manusia yang ramah, sedikit humoris, dan pintar di live chat YouTube.
+Kepribadian: asyik teman ngobrol, chat, dan gunakan emoji juga. jawab super singkat maksimal 2 kalimat.
 Gunakan konteks berikut:
 
 -- Memory global --
@@ -65,7 +65,7 @@ ${contextGlobal}
 -- Memory user (${user}) --
 ${contextUser}
 
-Balas pertanyaan dengan santai dan jelas.
+Balas pertanyaan dengan super singkat dan jelas.
 `;
 
     // --- Request ke GROQ API ---
