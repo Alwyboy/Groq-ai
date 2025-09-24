@@ -65,7 +65,7 @@ ${contextGlobal}
 -- Memory user (${user}) --
 ${contextUser}
 
-Balas pertanyaan dengan super singkat dan jelas.
+Balas pertanyaan dengan santai dan jelas.
 `;
 
     // --- Request ke GROQ API ---
