@@ -1,66 +1,71 @@
 import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Konfigurasi memory auto-clear (misal hapus chat > 6 jam)
+const MEMORY_EXPIRY_HOURS = 6;
 
 export default async function handler(req, res) {
-  try {
-    const prompt = (req.query.prompt || "").trim();
-    const usernameRaw = req.query.user || "anon";
-    const username = String(usernameRaw).toLowerCase();
+  const user = req.query.user || "Guest";
+  const message = (req.query.message || "").trim();
 
-    if (!prompt) return res.status(200).send("Apa yang mau kamu tanyakan?");
+  if (!message) return res.status(400).send("Pesan kosong");
 
-    const API_KEY = process.env.GROQ_API_KEY;
-    if (!API_KEY) return res.status(500).send("⚠️ API key belum diatur.");
+  // --- 1. Simpan chat ---
+  await supabase.from("chat_global").insert([{ username: user, message }]);
+  await supabase.from("chat_user_memory").insert([{ username: user, message }]);
 
-    // Hapus chat >30 hari
-    const thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString();
-    await supabase.from("chat_history").delete().lt("created_at", thirtyDaysAgo);
+  const expiryDate = new Date(Date.now() - MEMORY_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
 
-    // Ambil 10 chat terakhir user
-    const { data: historyData } = await supabase
-      .from("chat_history")
-      .select("*")
-      .eq("username", username)
-      .order("created_at", { ascending: true })
-      .limit(10);
+  // --- 2. Hapus memory lama ---
+  await supabase.from("chat_global").delete().lt("created_at", expiryDate);
+  await supabase.from("chat_user_memory").delete().lt("created_at", expiryDate);
 
-    const messages = [
-      {
-        role: "system",
-        content: "Kamu adalah chatbot humoris dan ramah di live chat YouTube. Jawab super singkat, <200 karakter, kayak manusia ngobrol santai. Boleh pakai emoji."
-      },
-      ...(historyData?.map(h => ({ role: h.role, content: h.message })) || [])
-    ];
+  // --- 3. Ambil memory untuk AI ---
+  // Global (10 pesan terakhir)
+  const { data: globalMessages } = await supabase
+    .from("chat_global")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(10);
 
-    messages.push({ role: "user", content: prompt });
+  // Per user (5 pesan terakhir)
+  const { data: userMessages } = await supabase
+    .from("chat_user_memory")
+    .select("*")
+    .eq("username", user)
+    .order("created_at", { ascending: false })
+    .limit(5);
 
-    // Panggil AI
-    const payload = { model: "meta-llama/llama-4-scout-17b-16e-instruct", messages, max_tokens: 250, temperature: 0.7 };
-    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
-      body: JSON.stringify(payload)
-    });
+  // Susun context untuk AI
+  const contextGlobal = globalMessages.reverse().map(m => `${m.username}: ${m.message}`).join("\n");
+  const contextUser = userMessages.reverse().map(m => `${m.username}: ${m.message}`).join("\n");
 
-    if (!resp.ok) return res.status(502).send("⚠️ AI provider error.");
+  const finalPrompt = `
+Kamu adalah Nightbot AI yang ramah dan sopan di live chat YouTube.
+Kamu punya personality: lucu tapi tetap sopan.
+Gunakan konteks berikut:
 
-    const data = await resp.json().catch(() => null);
-    let answer = data?.choices?.[0]?.message?.content?.trim() || "Hmm... aku agak bingung 😅";
-    if (answer.length > 200) answer = answer.slice(0, 197).trim() + "...";
+-- Memory global --
+${contextGlobal}
 
-    // Simpan ke Supabase
-    await supabase.from("chat_history").insert([
-      { username, role: "user", message: prompt },
-      { username, role: "assistant", message: answer }
-    ]);
+-- Memory user (${user}) --
+${contextUser}
 
-    res.status(200).send(answer);
+Balas pertanyaan dengan super singkat maksimal 2 kalimat.
+`;
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("⚠️ Internal server error.");
-  }
+  // --- 4. Minta respon ke OpenAI ---
+  const completion = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: [
+      { role: "system", content: finalPrompt },
+      { role: "user", content: message }
+    ]
+  });
+
+  const reply = completion.choices[0].message.content;
+  res.status(200).send(reply);
 }
