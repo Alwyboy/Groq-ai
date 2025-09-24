@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const message = (req.query.message || "").trim();
 
     if (!message) {
-      return res.status(400).send("Pesan kosong");
+  message = "kenapa saya di panggil?";
     }
 
     // --- Simpan chat global ---
