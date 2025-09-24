@@ -1,5 +1,5 @@
 {
-  "name": "groq-ai",
+  "name": "my-ai-bot",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -8,9 +8,11 @@
     "start": "next start"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.1.0",
-    "next": "13.5.4",
+    "@supabase/supabase-js": "^2.10.0",
+    "next": "13.5.1",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
-  }
+    "react-dom": "18.2.0",
+    "node-fetch": "^3.4.0"
+  },
+  "type": "module"
 }
