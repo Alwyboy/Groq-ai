@@ -7,11 +7,13 @@ const MEMORY_EXPIRY_HOURS = parseInt(process.env.MEMORY_EXPIRY_HOURS || "6");
 
 export default async function handler(req, res) {
   try {
+    // --- Ambil user & message ---
     const user = req.query.user || "Guest";
-    const message = (req.query.message || "").trim();
+    let message = (req.query.message || "").trim();
 
+    // --- Jika user tidak mengetik apapun, beri default message ---
     if (!message) {
-  message = "kenapa saya di panggil?";
+      message = "Halo!"; // bisa diganti dengan pesan lucu atau sopan
     }
 
     // --- Simpan chat global ---
@@ -55,8 +57,8 @@ export default async function handler(req, res) {
     const contextUser = (userMessages || []).reverse().map(m => `${m.username}: ${m.message}`).join("\n");
 
     const finalPrompt = `
-Kamu adalah Nightbot seperti manusia yang ramah, sedikit humoris, dan pintar di live chat YouTube.
-Kepribadian: asyik teman ngobrol, chat, dan gunakan emoji juga. jawab super singkat maksimal 2 kalimat.
+Kamu adalah Nightbot AI seperti manusia yang ramah dan sedikit humoris di live chat YouTube.
+Kepribadian: asyik diajak ngobrol,jangan kaku, gunakan emoji seperlunya, jawab super singkat maksimal 3 kalimat.
 Gunakan konteks berikut:
 
 -- Memory global --
