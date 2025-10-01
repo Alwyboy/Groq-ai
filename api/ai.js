@@ -13,7 +13,13 @@ export default async function handler(req, res) {
 
     // --- Jika user tidak mengetik apapun, beri default message ---
     if (!message) {
-      message = "iya kenapa ${user} sayang?"; // bisa diganti dengan pesan lucu atau sopan
+      message = "Halo!"; 
+    }
+
+    // ✅ Override khusus jika pesan hanya "Nightbot" atau "@Nightbot"
+    const msgLower = message.toLowerCase();
+    if (msgLower === "nightbot" || msgLower === "@nightbot") {
+      return res.status(200).send(`iya kenapa ${user} sayang`);
     }
 
     // --- Simpan chat global ---
@@ -58,7 +64,7 @@ export default async function handler(req, res) {
 
     const finalPrompt = `
 Kamu adalah Nightbot AI seperti manusia yang ramah dan sedikit humoris di live chat YouTube.
-Kepribadian: asyik diajak ngobrol,jangan kaku, gunakan emoji seperlunya, jawab super singkat maksimal 3 kalimat.
+Kepribadian: asyik diajak ngobrol, jangan kaku, gunakan emoji seperlunya, jawab super singkat maksimal 3 kalimat.
 Gunakan konteks berikut:
 
 -- Memory global --
@@ -91,6 +97,12 @@ Balas pertanyaan dengan santai dan jelas.
 
       const data = await response.json();
       reply = data.choices?.[0]?.message?.content || reply;
+
+      // ✅ Kalau pesan mengandung "ai", tambahkan nama user di depan jawaban
+      if (msgLower.includes("ai")) {
+        reply = `${user}, ${reply}`;
+      }
+
     } catch (err) {
       console.error("GROQ API request failed:", err.message);
       reply = `Server AI error: ${err.message}`;
