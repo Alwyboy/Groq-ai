@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
     // --- Jika user tidak mengetik apapun, beri default message ---
     if (!message) {
-      message = "Halo!"; // bisa diganti dengan pesan lucu atau sopan
+      message = "iya kenapa ${user} sayang?"; // bisa diganti dengan pesan lucu atau sopan
     }
 
     // --- Simpan chat global ---
