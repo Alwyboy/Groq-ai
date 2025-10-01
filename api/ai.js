@@ -16,10 +16,11 @@ export default async function handler(req, res) {
       message = "Halo!"; 
     }
 
-    // ✅ Override khusus jika pesan hanya "Nightbot" atau "@Nightbot"
     const msgLower = message.toLowerCase();
+
+    // ✅ Override khusus jika pesan hanya "Nightbot" atau "@Nightbot"
     if (msgLower === "nightbot" || msgLower === "@nightbot") {
-      return res.status(200).send(`iya kenapa ${user} sayang`);
+      return res.status(200).send(`${user}, iya kenapa sayang`);
     }
 
     // --- Simpan chat global ---
@@ -98,15 +99,13 @@ Balas pertanyaan dengan santai dan jelas.
       const data = await response.json();
       reply = data.choices?.[0]?.message?.content || reply;
 
-      // ✅ Kalau pesan mengandung "ai", tambahkan nama user di depan jawaban
-      if (msgLower.includes("Nightbot")) {
-        reply = `${user}, ${reply}`;
-      }
-
     } catch (err) {
       console.error("GROQ API request failed:", err.message);
       reply = `Server AI error: ${err.message}`;
     }
+
+    // ✅ Tambahkan nama user di depan semua respon
+    reply = `${user}, ${reply}`;
 
     res.status(200).send(reply);
 
@@ -115,3 +114,4 @@ Balas pertanyaan dengan santai dan jelas.
     res.status(500).send("Server error: " + err.message);
   }
 }
+  
