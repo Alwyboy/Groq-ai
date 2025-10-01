@@ -10,10 +10,6 @@ export default async function handler(req, res) {
     // --- Ambil user & message ---
     const user = req.query.user || "Guest";
     let message = (req.query.message || "").trim();
-
-    // --- Jika user tidak mengetik apapun, beri default message ---
-    if (!message) {
-      message = "${user}"; 
     }
 
     const msgLower = message.toLowerCase();
