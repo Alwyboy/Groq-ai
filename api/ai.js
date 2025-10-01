@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
     // --- Jika user tidak mengetik apapun, beri default message ---
     if (!message) {
-      message = "${user}, iya kenapa sayang"; 
+      message = "${user}"; 
     }
 
     const msgLower = message.toLowerCase();
