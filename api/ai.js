@@ -99,7 +99,7 @@ Balas pertanyaan dengan santai dan jelas.
       reply = data.choices?.[0]?.message?.content || reply;
 
       // ✅ Kalau pesan mengandung "ai", tambahkan nama user di depan jawaban
-      if (msgLower.includes("ai")) {
+      if (msgLower.includes("Nightbot")) {
         reply = `${user}, ${reply}`;
       }
 
