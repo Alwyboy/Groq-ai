@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
     // --- Jika user tidak mengetik apapun, beri default message ---
     if (!message) {
-      message = "Halo!"; 
+      message = "${user}, iya kenapa sayang"; 
     }
 
     const msgLower = message.toLowerCase();
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     const contextUser = (userMessages || []).reverse().map(m => `${m.username}: ${m.message}`).join("\n");
 
     const finalPrompt = `
-Kamu adalah Nightbot AI seperti manusia yang ramah dan sedikit humoris di live chat YouTube.
+Kamu adalah Nightbot AI seperti manusia yang santai dan sedikit humoris di live chat YouTube.
 Kepribadian: asyik diajak ngobrol, jangan kaku, gunakan emoji seperlunya, jawab super singkat maksimal 3 kalimat.
 Gunakan konteks berikut:
 
