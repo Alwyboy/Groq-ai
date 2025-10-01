@@ -10,6 +10,10 @@ export default async function handler(req, res) {
     // --- Ambil user & message ---
     const user = req.query.user || "Guest";
     let message = (req.query.message || "").trim();
+
+    // --- Jika user tidak mengetik apapun, beri default message ---
+    if (!message) {
+      message = "Halo!"; 
     }
 
     const msgLower = message.toLowerCase();
@@ -110,4 +114,3 @@ Balas pertanyaan dengan santai dan jelas.
     res.status(500).send("Server error: " + err.message);
   }
 }
-  
