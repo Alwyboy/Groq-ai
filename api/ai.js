@@ -4,6 +4,8 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 // Konfigurasi memory auto-clear (jam)
 const MEMORY_EXPIRY_HOURS = parseInt(process.env.MEMORY_EXPIRY_HOURS || "24");
+// Batas karakter pesan YouTube Live Chat (aman: 200)
+const CHAT_CHAR_LIMIT = 200;
 
 export default async function handler(req, res) {
   try {
@@ -98,16 +100,32 @@ Balas pertanyaan dengan santai dan jelas.
 
       const data = await response.json();
       reply = data.choices?.[0]?.message?.content || reply;
-
     } catch (err) {
       console.error("GROQ API request failed:", err.message);
       reply = `Server AI error: ${err.message}`;
     }
 
     // ✅ Tambahkan nama user di depan semua respon
-    reply = `${user}, ${reply}`;
+    reply = `${user}, ${reply}`.trim();
 
-    res.status(200).send(reply);
+    // ✅ Jika balasan terlalu panjang, pecah jadi beberapa bagian
+    const splitReply = [];
+    for (let i = 0; i < reply.length; i += CHAT_CHAR_LIMIT) {
+      splitReply.push(reply.slice(i, i + CHAT_CHAR_LIMIT));
+    }
+
+    // Jika hanya 1 bagian, kirim biasa
+    if (splitReply.length === 1) {
+      return res.status(200).send(splitReply[0]);
+    }
+
+    // Jika lebih dari 1 bagian, kirim sebagai array pesan berurutan
+    // Misal Nightbot diset untuk menampilkan semuanya satu per satu
+    const fullReply = splitReply
+      .map((part, idx) => idx === 0 ? `${part}` : `↳ ${part}`)
+      .join("\n");
+
+    return res.status(200).send(fullReply);
 
   } catch (err) {
     console.error("Unexpected error in handler:", err);
