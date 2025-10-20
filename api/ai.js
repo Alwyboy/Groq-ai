@@ -2,18 +2,22 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Konfigurasi memory auto-clear (jam)
+// Konfigurasi
 const MEMORY_EXPIRY_HOURS = parseInt(process.env.MEMORY_EXPIRY_HOURS || "24");
-const CHAT_CHAR_LIMIT = 200;
+const CHAT_CHAR_LIMIT = 200; // batas aman karakter per komentar
 
 export default async function handler(req, res) {
   try {
+    // --- Ambil user & message ---
     const user = req.query.user || "Guest";
     let message = (req.query.message || "").trim();
 
+    // ✅ Jika user tidak mengetik apapun → respon khusus
     if (!message) return res.status(200).send(`iya kenapa ${user} sayang?`);
 
     const msgLower = message.toLowerCase();
+
+    // ✅ Override untuk "Nightbot"
     if (msgLower === "nightbot" || msgLower === "@nightbot")
       return res.status(200).send(`${user}, iya kenapa sayang`);
 
@@ -40,6 +44,7 @@ export default async function handler(req, res) {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(10);
+
     const { data: userMessages } = await supabase
       .from("chat_user_memory")
       .select("*")
@@ -47,8 +52,15 @@ export default async function handler(req, res) {
       .order("created_at", { ascending: false })
       .limit(5);
 
-    const contextGlobal = (globalMessages || []).reverse().map(m => `${m.username}: ${m.message}`).join("\n");
-    const contextUser = (userMessages || []).reverse().map(m => `${m.username}: ${m.message}`).join("\n");
+    const contextGlobal = (globalMessages || [])
+      .reverse()
+      .map(m => `${m.username}: ${m.message}`)
+      .join("\n");
+
+    const contextUser = (userMessages || [])
+      .reverse()
+      .map(m => `${m.username}: ${m.message}`)
+      .join("\n");
 
     const finalPrompt = `
 Kamu adalah Nightbot AI seperti manusia yang ramah dan sedikit humoris di live chat YouTube.
@@ -66,20 +78,21 @@ Balas pertanyaan dengan santai dan jelas.
 
     // --- Request ke GROQ API ---
     let reply = "Maaf, saya tidak bisa membalas sekarang.";
+
     try {
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: finalPrompt },
-            { role: "user", content: message }
-          ]
-        })
+            { role: "user", content: message },
+          ],
+        }),
       });
 
       const data = await response.json();
@@ -92,7 +105,7 @@ Balas pertanyaan dengan santai dan jelas.
     // ✅ Tambahkan nama user di depan
     reply = `${user}, ${reply}`.trim();
 
-    // ✅ Pecah jika terlalu panjang
+    // ✅ Pecah jadi beberapa bagian kalau panjang
     const splitReply = [];
     for (let i = 0; i < reply.length; i += CHAT_CHAR_LIMIT) {
       let part = reply.slice(i, i + CHAT_CHAR_LIMIT).trim();
@@ -100,8 +113,8 @@ Balas pertanyaan dengan santai dan jelas.
       splitReply.push(part);
     }
 
-    // ✅ Kirim satu per satu (delay antar pesan 2 detik)
-    const SEND_URL = process.env.BOT_SEND_URL; // endpoint bot kamu
+    // ✅ Kirim satu per satu via endpoint pengirim
+    const SEND_URL = process.env.BOT_SEND_URL; // isi di environment kamu
     if (SEND_URL) {
       for (let i = 0; i < splitReply.length; i++) {
         const msg = splitReply[i];
@@ -109,22 +122,28 @@ Balas pertanyaan dengan santai dan jelas.
           await fetch(SEND_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user, message: msg })
+            body: JSON.stringify({ user, message: msg }),
           });
-          if (i < splitReply.length - 1) await new Promise(r => setTimeout(r, 2000)); // jeda 2 detik
+
+          // Jeda 2 detik antar kiriman agar tidak dianggap spam
+          if (i < splitReply.length - 1)
+            await new Promise((r) => setTimeout(r, 2000));
         } catch (err) {
-          console.error("Gagal kirim pesan ke bot:", err.message);
+          console.error("Gagal kirim pesan ke BOT_SEND_URL:", err.message);
         }
       }
     }
 
-    // ✅ Balasan ke requester
-    if (splitReply.length === 1) return res.status(200).send(splitReply[0]);
-    return res.status(200).json({ multiReply: true, sent: splitReply.length });
+    // ✅ Balasan HTTP untuk memastikan proses selesai
+    if (splitReply.length === 1)
+      return res.status(200).send(splitReply[0]);
+
+    return res
+      .status(200)
+      .send(`(${splitReply.length} pesan telah dikirim ke live chat)`);
 
   } catch (err) {
     console.error("Unexpected error:", err);
     res.status(500).send("Server error: " + err.message);
   }
 }
-
