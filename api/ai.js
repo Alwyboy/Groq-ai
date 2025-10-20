@@ -4,7 +4,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 // Konfigurasi
 const MEMORY_EXPIRY_HOURS = parseInt(process.env.MEMORY_EXPIRY_HOURS || "24");
-const CHAT_CHAR_LIMIT = 200; // batas aman karakter per komentar
+const CHAT_CHAR_LIMIT = 200; // batas aman karakter YouTube per komentar
 
 export default async function handler(req, res) {
   try {
@@ -13,13 +13,16 @@ export default async function handler(req, res) {
     let message = (req.query.message || "").trim();
 
     // ✅ Jika user tidak mengetik apapun → respon khusus
-    if (!message) return res.status(200).send(`iya kenapa ${user} sayang?`);
+    if (!message) {
+      return res.status(200).send(`iya kenapa ${user} sayang?`);
+    }
 
     const msgLower = message.toLowerCase();
 
-    // ✅ Override untuk "Nightbot"
-    if (msgLower === "nightbot" || msgLower === "@nightbot")
+    // ✅ Override jika pesan hanya "Nightbot" atau "@Nightbot"
+    if (msgLower === "nightbot" || msgLower === "@nightbot") {
       return res.status(200).send(`${user}, iya kenapa sayang`);
+    }
 
     // --- Simpan chat global & user ---
     try {
@@ -56,7 +59,6 @@ export default async function handler(req, res) {
       .reverse()
       .map(m => `${m.username}: ${m.message}`)
       .join("\n");
-
     const contextUser = (userMessages || [])
       .reverse()
       .map(m => `${m.username}: ${m.message}`)
@@ -84,15 +86,15 @@ Balas pertanyaan dengan santai dan jelas.
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
         },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: finalPrompt },
-            { role: "user", content: message },
-          ],
-        }),
+            { role: "user", content: message }
+          ]
+        })
       });
 
       const data = await response.json();
@@ -105,45 +107,28 @@ Balas pertanyaan dengan santai dan jelas.
     // ✅ Tambahkan nama user di depan
     reply = `${user}, ${reply}`.trim();
 
-    // ✅ Pecah jadi beberapa bagian kalau panjang
+    // ✅ Jika balasan terlalu panjang, pecah menjadi beberapa bagian
     const splitReply = [];
     for (let i = 0; i < reply.length; i += CHAT_CHAR_LIMIT) {
       let part = reply.slice(i, i + CHAT_CHAR_LIMIT).trim();
-      if (i > 0) part = `↳ ${part}`;
       splitReply.push(part);
     }
 
-    // ✅ Kirim satu per satu via endpoint pengirim
-    const SEND_URL = process.env.BOT_SEND_URL; // isi di environment kamu
-    if (SEND_URL) {
-      for (let i = 0; i < splitReply.length; i++) {
-        const msg = splitReply[i];
-        try {
-          await fetch(SEND_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user, message: msg }),
-          });
-
-          // Jeda 2 detik antar kiriman agar tidak dianggap spam
-          if (i < splitReply.length - 1)
-            await new Promise((r) => setTimeout(r, 2000));
-        } catch (err) {
-          console.error("Gagal kirim pesan ke BOT_SEND_URL:", err.message);
-        }
-      }
+    // ✅ Gabungkan semua bagian jadi satu string (dengan tanda lanjutan)
+    let finalReply;
+    if (splitReply.length === 1) {
+      finalReply = splitReply[0];
+    } else {
+      finalReply = splitReply
+        .map((part, i) => (i === 0 ? part : `↳ ${part}`))
+        .join("\n");
     }
 
-    // ✅ Balasan HTTP untuk memastikan proses selesai
-    if (splitReply.length === 1)
-      return res.status(200).send(splitReply[0]);
-
-    return res
-      .status(200)
-      .send(`(${splitReply.length} pesan telah dikirim ke live chat)`);
+    // ✅ Kirim hasil akhir ke chat (satu kali kirim, rapi)
+    return res.status(200).send(finalReply);
 
   } catch (err) {
-    console.error("Unexpected error:", err);
+    console.error("Unexpected error in handler:", err);
     res.status(500).send("Server error: " + err.message);
   }
 }
